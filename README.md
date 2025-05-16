@@ -1,4 +1,4 @@
-# 🏡 Airbnb Clone Backend
+# 🏡 Stay Ease Airbnb Clone Backend
 
 ## 🚀 Objective
 This backend is the foundation for the **Airbnb Clone Project**, designed to manage users, property listings, bookings, payments, and reviews. It supports robust functionality to mirror the core experience of Airbnb for both guests and hosts.
