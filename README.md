@@ -11,6 +11,7 @@ This backend is the foundation for the **Airbnb Clone Project**, designed to man
 - **Booking System:** Reserve and manage stays, including check-in/check-out flows.
 - **Payment Processing:** Handle secure payments for bookings.
 - **Review System:** Allow guests to rate and review stays.
+- **Map Integration:** Support location based property searching and map displays
 - **Data Optimization:** Ensure efficient queries and scalability using caching and indexing.
 
 ---
@@ -20,12 +21,15 @@ This backend is the foundation for the **Airbnb Clone Project**, designed to man
 | Technology        | Purpose                                                                 |
 |-------------------|-------------------------------------------------------------------------|
 | Django            | A high-level Python web framework for building RESTful APIs             |
-| Django REST Framework | Provides tools for creating and managing RESTful endpoints           |
+| Django REST Framework | Provides tools for creating and managing RESTful endpoints          |
 | PostgreSQL        | Relational database for storing structured project data                 |
 | GraphQL           | Enables flexible querying of data via schemas                           |
 | Celery            | Asynchronous task queue (e.g., for email or payment processing)         |
 | Redis             | In-memory data store for caching and session handling                   |
 | Docker            | Containerization to ensure consistent environments                      |
+| JWT               | JSON web token for user authentication                                  |
+| Stripe            | For secure payment processing                                           |
+| Mapbox/ Google Maps API | For property location services                                    |
 | CI/CD Pipelines   | Automates testing, deployment, and integration using GitHub Actions etc.|
 
 ---
@@ -55,6 +59,17 @@ The core entities and their relationships:
 - **Review**
   - `id`, `user_id`, `property_id`, `rating`, `comment`
   - Tied to both user and property.
+  - **Amenity**
+  - `id`, `name`, `icon`
+  - Many-to-many relationship with properties.
+
+- **Image**
+  - `id`, `property_id`, `image_url`, `is_primary`
+  - A property can have multiple images.
+
+- **Saved Property**
+  - `id`, `user_id`, `property_id`, `saved_at`
+  - Tracks properties saved by users for later viewing.
 
 **Relationships**:
 - One user can list many properties.
@@ -62,32 +77,57 @@ The core entities and their relationships:
 - A booking is linked to one user and one property.
 - A payment is linked to one booking.
 - A review is linked to one user and one property.
+- A property can have many images
+- A user can save many properties
 
 ---
 
 ## 🧩 Feature Breakdown
 
 ### 1. User Management
-Handles registration, login, and profile updates. Secure authentication and authorization are applied to protect user accounts.
-
+- User registration and authentication
+- User profile creation and management
+- Role based access control (guest, host, admin)
 ### 2. Property Management
-Enables users (hosts) to create, update, and delete property listings with relevant details, ensuring guests can find places to stay.
+- Create, Read, Update, Delete (CRUD) operations with property listings
+- Property search with filtering (location, price, dates,capacity and amenities)
+- Property image management with multiple uploads
+- Location-based property discovery with map integration
+### 3. Booking system
+- Check availability for specific dates
+- Create and manage bookings
+- Booking status updates (pending, confirmed, completed, cancelled)
+- Conflict prevention for double booking
 
-### 3. Booking System
-Allows guests to reserve properties for a specified date range. Handles logic for check-in, check-out, availability, and booking statuses.
-
-### 4. Payment Processing
-Processes booking payments securely using integrated payment gateways. Ensures transaction records are linked to bookings.
+### 4. Payment processing
+- Secure payment intergration with stripe
+- Payment status tracking
+- Refund processing for cancellation
+- Invoice integration
 
 ### 5. Review System
-Allows guests to rate their stay and provide written feedback. These reviews are visible to other users to build trust.
+- Create, Read, Update, Delete reviews
+- Rating system (1 - 5) stars
+- Review verification (allow only reviews from completed stays)
+- Response system for hosts to reply to reviews
+  
+### 6. Map Integration
+- Geocoding for property address
+- Map visualization API endpoints
+- Location based search queries
+- Distance calculation from points of interest
 
-### 6. API Documentation
-REST APIs are documented using OpenAPI and DRF. GraphQL offers an alternative flexible way to query data.
+### 7. Notification system
+-Email notifications for booking confirmations
+- Reminder for upcoming stays
+- Review requests after check outs
+- Host notifications for new bookings
 
-### 7. Database Optimization
-Implements indexing and caching (Redis) to ensure fast data retrieval and reduced load on the database.
-
+### 8. API Optimization
+- Response pagination for large datasets
+- Data caching with redis
+- Database indexing for common queries
+- API rate limiting to prevent abuse.
 ---
 
 ## 🔐 API Security
@@ -97,12 +137,107 @@ Implements indexing and caching (Redis) to ensure fast data retrieval and reduce
 - **Authorization**: Only property owners can modify their listings; only guests can leave reviews for places they’ve booked.
 - **Rate Limiting**: Prevents abuse by limiting API calls per user/IP.
 - **Input Validation**: Prevents SQL injection, XSS, and other common vulnerabilities.
+- **HTTPS**: All API endpoints require secure HTTPS connections.
+- **Password Security**: Secure password hashing and storage.
 
 ### Importance
 - **User Data Protection**: Secure credentials and private information.
 - **Booking & Payment Security**: Prevent fraud or manipulation of bookings and payments.
 - **System Integrity**: Keeps the platform stable and resilient against attacks.
 
+---
+
+## 📦 API Integration with Frontend
+
+### 1. Authentication Flow
+- Provides JWT tokens for frontend authentication
+- Handles token refresh and validation
+- Exposes user profile data for the frontend profile page
+
+### 2. Property Data for UI Components
+- Optimized endpoints for property cards in the listing grid
+- Detailed property information for the property detail page
+- Image galleries and amenity lists
+
+### 3. Booking Interaction
+- Availability checking during date selection
+- Real-time booking status updates
+- Calendar data for the availability display
+
+### 4. Payment Integration
+- Secure payment intent creation for Stripe Elements
+- Frontend hooks for payment confirmation
+- Payment history for user dashboards
+
+### 5. Review Management
+- Review submission from the frontend
+- Rating display and calculation
+- Host response integration
+
+---
+
+## 📈 API Documentation
+
+### REST API Endpoints
+
+#### 👤 Users & Authentication
+- `POST /api/auth/register/` – Register a new user
+- `POST /api/auth/login/` – User login (returns JWT)
+- `POST /api/auth/refresh/` – Refresh JWT token
+- `GET /api/auth/me/` – Get current user profile
+- `PUT /api/auth/me/` – Update user profile
+- `POST /api/auth/password/change/` – Change password
+
+#### 🏘 Properties
+- `GET /api/properties/` – List all properties with filtering
+- `POST /api/properties/` – Create new property (host only)
+- `GET /api/properties/{id}/` – Get property details
+- `PUT /api/properties/{id}/` – Update property (owner only)
+- `DELETE /api/properties/{id}/` – Delete property (owner only)
+- `POST /api/properties/{id}/images/` – Add images to property
+- `GET /api/properties/featured/` – Get featured properties
+- `GET /api/properties/nearby/?lat={lat}&lng={lng}` – Find nearby properties
+
+#### 📅 Bookings
+- `GET /api/bookings/` – List user's bookings
+- `POST /api/bookings/` – Create a booking
+- `GET /api/bookings/{id}/` – View booking details
+- `PUT /api/bookings/{id}/` – Update booking (status changes)
+- `DELETE /api/bookings/{id}/` – Cancel booking
+- `GET /api/properties/{id}/availability/` – Check property availability
+
+#### 💰 Payments
+- `POST /api/payments/create-intent/` – Create payment intent
+- `POST /api/payments/confirm/` – Confirm payment
+- `GET /api/payments/history/` – View payment history
+- `POST /api/payments/refund/{booking_id}/` – Request refund
+
+#### ⭐ Reviews
+- `GET /api/reviews/property/{property_id}/` – List property reviews
+- `POST /api/reviews/` – Add a review
+- `GET /api/reviews/{id}/` – View a review
+- `PUT /api/reviews/{id}/` – Edit review (author only)
+- `DELETE /api/reviews/{id}/` – Delete review (author only)
+- `POST /api/reviews/{id}/response/` – Host response to review
+
+#### 🗺️ Maps & Locations
+- `GET /api/locations/geocode/?address={address}` – Geocode an address
+- `GET /api/locations/properties/?bounds={sw_lat},{sw_lng},{ne_lat},{ne_lng}` – Get properties in map bounds
+
+#### 💾 Saved Properties
+- `GET /api/saved/` – List user's saved properties
+- `POST /api/saved/{property_id}/` – Save a property
+- `DELETE /api/saved/{property_id}/` – Remove a saved property
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Python 3.8+
+- PostgreSQL
+- Redis
+- Docker (optional but recommended)
 ---
 
 ## 🛠 CI/CD Pipeline
